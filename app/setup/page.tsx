@@ -9,6 +9,8 @@ interface Creds {
   GOOGLE_CLIENT_SECRET: string
   OPENAI_API_KEY: string
   GOOGLE_PLACES_API_KEY: string
+  ALLOWED_EMAIL: string
+  GOOGLE_SHEET_ID: string
 }
 
 const EMPTY: Creds = {
@@ -16,6 +18,8 @@ const EMPTY: Creds = {
   GOOGLE_CLIENT_SECRET: '',
   OPENAI_API_KEY: '',
   GOOGLE_PLACES_API_KEY: '',
+  ALLOWED_EMAIL: '',
+  GOOGLE_SHEET_ID: '',
 }
 
 export default function SetupPage() {
@@ -260,6 +264,57 @@ export default function SetupPage() {
           <p className="text-muted text-xs font-mono mt-2">
             Google Cloud → APIs → Habilitar "Places API (New)" → Credenciales → API Key
           </p>
+        </div>
+
+        {/* Cuenta permitida */}
+        <div className="card mb-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-6 h-6 rounded-lg bg-cyan-500/20 flex items-center justify-center text-sm">👤</div>
+            <h2 className="font-display text-sm font-semibold text-text">Cuenta de Google permitida</h2>
+          </div>
+
+          <Field
+            label="Email autorizado"
+            keyName="ALLOWED_EMAIL"
+            value={creds.ALLOWED_EMAIL}
+            onChange={(v) => set('ALLOWED_EMAIL', v)}
+            placeholder="tu@gmail.com"
+            isSet={status['ALLOWED_EMAIL']}
+            show={show['email']}
+            onToggle={() => toggleShow('email')}
+            required
+          />
+
+          <p className="text-muted text-xs font-mono mt-2">
+            Solo este email podrá hacer login con Google en la app
+          </p>
+        </div>
+
+        {/* Google Sheet ID */}
+        <div className="card mb-4">
+          <div className="flex items-center gap-2 mb-4">
+            <div className="w-6 h-6 rounded-lg bg-green-500/20 flex items-center justify-center text-sm">📊</div>
+            <h2 className="font-display text-sm font-semibold text-text">Google Sheet principal</h2>
+          </div>
+
+          <Field
+            label="Spreadsheet ID"
+            keyName="GOOGLE_SHEET_ID"
+            value={creds.GOOGLE_SHEET_ID}
+            onChange={(v) => set('GOOGLE_SHEET_ID', v)}
+            placeholder="1BxiMVs0XRA5nFMdKvBdBZjgmUUqptlbs74OgVE2upms"
+            isSet={status['GOOGLE_SHEET_ID']}
+            show={show['sheetid']}
+            onToggle={() => toggleShow('sheetid')}
+            required
+          />
+
+          <div className="mt-3 bg-surface-2 rounded-xl px-4 py-3 border border-border">
+            <p className="text-text-dim text-xs font-mono leading-relaxed">
+              📋 El ID está en la URL de tu Google Sheet:<br/>
+              <span className="text-accent">https://docs.google.com/spreadsheets/d/<strong>ESTE_ES_EL_ID</strong>/edit</span>
+            </p>
+          </div>
         </div>
 
         {/* Nota NextAuth */}
