@@ -25,10 +25,17 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return '/login?error=no_email'
-      await (getSupabase().from('usuarios') as any).upsert(
-        { email: user.email },
-        { onConflict: 'email', ignoreDuplicates: true }
-      )
+      try {
+        const sb = getSupabase()
+        if (sb) {
+          await (sb.from('usuarios') as any).upsert(
+            { email: user.email },
+            { onConflict: 'email', ignoreDuplicates: true }
+          )
+        }
+      } catch (e) {
+        console.warn('Supabase upsert falló (no crítico):', e)
+      }
       return true
     },
     async jwt({ token, account }) {

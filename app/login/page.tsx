@@ -3,7 +3,6 @@
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
-import { supabase } from '@/lib/supabase'
 
 function LoginContent() {
   const router = useRouter()
@@ -24,7 +23,6 @@ function LoginContent() {
     })
     const data = await res.json()
     if (res.ok) {
-      // Guardar email en cookie para useAuth
       document.cookie = `sb-user-email=${encodeURIComponent(email)};path=/;max-age=${60 * 60 * 24 * 7};samesite=lax`
       router.push('/dashboard')
     } else {
@@ -33,23 +31,8 @@ function LoginContent() {
     setLoading(false)
   }
 
-  const loginGoogle = async () => {
-    try {
-      const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
-        },
-      })
-      if (error) {
-        console.warn('Supabase OAuth falló, usando NextAuth:', error.message)
-        signIn('google', { callbackUrl: '/dashboard' })
-      }
-    } catch (e) {
-      // Supabase no configurado → fallback a NextAuth
-      console.warn('Supabase no disponible, usando NextAuth')
-      signIn('google', { callbackUrl: '/dashboard' })
-    }
+  const loginGoogle = () => {
+    signIn('google', { callbackUrl: '/dashboard' })
   }
 
   return (
