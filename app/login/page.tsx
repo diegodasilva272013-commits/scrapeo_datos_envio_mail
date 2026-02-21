@@ -2,8 +2,6 @@
 
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
-import { signIn } from 'next-auth/react'
-import { supabase } from '@/lib/supabase'
 
 function LoginContent() {
   const router = useRouter()
@@ -32,13 +30,8 @@ function LoginContent() {
     setLoading(false)
   }
 
-  const loginGoogle = async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
+  const loginGoogle = () => {
+    window.location.href = `https://hvpvjjaobcaykolxtdhz.supabase.co/auth/v1/authorize?provider=google&redirect_to=${window.location.origin}/auth/callback`
   }
 
   return (
