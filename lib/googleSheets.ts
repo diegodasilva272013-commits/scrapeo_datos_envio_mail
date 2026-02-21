@@ -13,15 +13,26 @@ export function getDriveClient(accessToken: string) {
   return google.drive({ version: 'v3', auth })
 }
 
-// ─── Listar spreadsheets del Drive ──────────────────────────────────────────
+// ─── Listar spreadsheets del Drive (todos, con paginación) ──────────────────
 export async function listSpreadsheets(accessToken: string) {
   const drive = getDriveClient(accessToken)
-  const res = await drive.files.list({
-    q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
-    fields: 'files(id, name)',
-    pageSize: 50,
-  })
-  return res.data.files || []
+  const allFiles: { id: string; name: string }[] = []
+  let pageToken: string | undefined = undefined
+
+  do {
+    const res: any = await drive.files.list({
+      q: "mimeType='application/vnd.google-apps.spreadsheet' and trashed=false",
+      fields: 'nextPageToken, files(id, name)',
+      pageSize: 1000,
+      orderBy: 'name',
+      ...(pageToken ? { pageToken } : {}),
+    })
+    const files = res.data.files || []
+    allFiles.push(...files)
+    pageToken = res.data.nextPageToken
+  } while (pageToken)
+
+  return allFiles
 }
 
 // ─── Listar tabs (sheets) de un spreadsheet ─────────────────────────────────
