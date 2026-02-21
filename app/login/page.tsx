@@ -1,8 +1,8 @@
 'use client'
 
 import { useState, Suspense } from 'react'
-import { signIn } from 'next-auth/react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 function LoginContent() {
   const router = useRouter()
@@ -23,11 +23,25 @@ function LoginContent() {
     })
     const data = await res.json()
     if (res.ok) {
+      // Guardar email en cookie para useAuth
+      document.cookie = `sb-user-email=${encodeURIComponent(email)};path=/;max-age=${60 * 60 * 24 * 7};samesite=lax`
       router.push('/dashboard')
     } else {
       setError(data.error || 'Email o contraseña incorrectos')
     }
     setLoading(false)
+  }
+
+  const loginGoogle = async () => {
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+    if (error) {
+      setError('Error al conectar con Google: ' + error.message)
+    }
   }
 
   return (
@@ -71,7 +85,7 @@ function LoginContent() {
 
           {/* Google */}
           <button
-            onClick={() => signIn('google', { callbackUrl: '/dashboard' })}
+            onClick={loginGoogle}
             className="w-full flex items-center justify-center gap-3 bg-white text-gray-800 font-semibold py-3 px-6 rounded-xl hover:bg-gray-50 transition-all shadow"
           >
             <svg width="20" height="20" viewBox="0 0 24 24">
