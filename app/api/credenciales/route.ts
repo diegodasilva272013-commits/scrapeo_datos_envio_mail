@@ -1,42 +1,64 @@
 import { NextRequest, NextResponse } from 'next/server'
-import fs from 'fs'
-import path from 'path'
+import { supabaseWithToken } from '@/lib/supabaseServer'
 
-const ENV_PATH = path.join(process.cwd(), '.env.local')
+function getToken(req: NextRequest) {
+  return req.headers.get('x-sb-token') || ''
+}
 
-function readEnv(): Record<string, string> {
+export async function GET(req: NextRequest) {
   try {
-    const content = fs.readFileSync(ENV_PATH, 'utf-8')
-    const vars: Record<string, string> = {}
-    content.split('\n').forEach(line => {
-      const trimmed = line.trim()
-      if (!trimmed || trimmed.startsWith('#')) return
-      const idx = trimmed.indexOf('=')
-      if (idx < 0) return
-      vars[trimmed.slice(0, idx).trim()] = trimmed.slice(idx + 1).trim()
-    })
-    return vars
-  } catch { return {} }
+    const token = getToken(req)
+    if (!token) return NextResponse.json({ error: 'No autenticado', creds: {} })
+
+    const sb = supabaseWithToken(token)
+    const { data, error } = await sb
+      .from('credenciales')
+      .select('google_client_id,google_client_secret,google_sheet_id,openai_api_key,places_api_key')
+      .maybeSingle()
+
+    if (error) return NextResponse.json({ error: error.message, creds: {} })
+    return NextResponse.json({ creds: data || {} })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message, creds: {} })
+  }
 }
 
 export async function POST(req: NextRequest) {
-  const { clientId, clientSecret, sheetId } = await req.json()
-
-  if (!clientId || !clientSecret) {
-    return NextResponse.json({ error: 'Client ID y Client Secret son obligatorios' }, { status: 400 })
-  }
-
-  const env = readEnv()
-  if (clientId) env['GOOGLE_CLIENT_ID'] = clientId
-  if (clientSecret) env['GOOGLE_CLIENT_SECRET'] = clientSecret
-  if (sheetId) env['GOOGLE_SHEET_ID'] = sheetId
-
-  const lines = Object.entries(env).map(([k, v]) => `${k}=${v}`)
-
   try {
-    fs.writeFileSync(ENV_PATH, lines.join('\n') + '\n', 'utf-8')
-    return NextResponse.json({ message: 'Credenciales guardadas. Reiniciá el servidor para aplicar.' })
-  } catch (e) {
-    return NextResponse.json({ error: `Error guardando: ${e}` }, { status: 500 })
+    const token = getToken(req)
+    if (!token) return NextResponse.json({ error: 'No autenticado' })
+
+    const body = await req.json()
+    const { creds } = body as {
+      creds: {
+        google_client_id?: string
+        google_client_secret?: string
+        google_sheet_id?: string
+        openai_api_key?: string
+        places_api_key?: string
+      }
+    }
+
+    const sb = supabaseWithToken(token)
+
+    // Obtener user_id del JWT
+    const { data: { user } } = await sb.auth.getUser()
+    if (!user) return NextResponse.json({ error: 'Sesión inválida' })
+
+    // Solo guardar campos con valor no vacío
+    const toSave: Record<string, string> = { user_id: user.id }
+    Object.entries(creds).forEach(([k, v]) => {
+      if (v && typeof v === 'string' && v.trim()) toSave[k] = v.trim()
+    })
+    toSave['updated_at'] = new Date().toISOString()
+
+    const { error } = await sb
+      .from('credenciales')
+      .upsert(toSave, { onConflict: 'user_id' })
+
+    if (error) return NextResponse.json({ error: error.message })
+    return NextResponse.json({ ok: true })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message })
   }
 }

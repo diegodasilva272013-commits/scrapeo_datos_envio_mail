@@ -18,8 +18,9 @@ import { sleep } from '../utils/sleep'
 export interface WorkflowBConfig {
   accessToken: string
   spreadsheetId: string
-  sheetName: string         // tab LEADS
-  emailsPerDay?: number     // default 10 (Limit node)
+  sheetName: string
+  emailsPerDay?: number
+  openaiApiKey?: string
   onLog?: (msg: string) => void
 }
 
@@ -110,7 +111,8 @@ export async function runWorkflowB(config: WorkflowBConfig) {
         promptB,
         cleaned.cleanText,
         cleaned.colorPrimario,
-        cleaned.colorSecundario
+        cleaned.colorSecundario,
+        config.openaiApiKey
       )
     } catch (err) {
       onLog(`    ❌ Error OpenAI: ${String(err)}`)

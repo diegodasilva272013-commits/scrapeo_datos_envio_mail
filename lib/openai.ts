@@ -1,18 +1,13 @@
 import OpenAI from 'openai'
 
-let _client: OpenAI | null = null
-
-function getClient() {
-  if (!_client) {
-    _client = new OpenAI({ apiKey: process.env.OPENAI_API_KEY })
-  }
-  return _client
+function getClient(apiKey?: string) {
+  return new OpenAI({ apiKey: apiKey || process.env.OPENAI_API_KEY })
 }
 
 // ─── Workflow A: Generar frase "Búscame X en Y" ───────────────────────────────
 // Usa el prompt A configurable desde la UI (guardado en PROMPTS tab)
-export async function generateNicheQuery(promptA: string): Promise<string> {
-  const client = getClient()
+export async function generateNicheQuery(promptA: string, apiKey?: string): Promise<string> {
+  const client = getClient(apiKey)
   const res = await client.chat.completions.create({
     model: 'gpt-4.1',
     messages: [{ role: 'user', content: promptA }],
@@ -26,9 +21,10 @@ export async function generateIcebreakerEmail(
   systemPromptB: string,
   cleanText: string,
   colorPrimario: string,
-  colorSecundario: string
+  colorSecundario: string,
+  apiKey?: string
 ): Promise<{ ASUNTO: string; HTML: string }> {
-  const client = getClient()
+  const client = getClient(apiKey)
 
   const userContent = `### DATOS DEL PROSPECTO
 

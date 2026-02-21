@@ -22,6 +22,8 @@ export interface WorkflowAConfig {
   niche?: string            // override manual (si viene de UI)
   city?: string             // override manual
   promptA?: string          // prompt editable
+  openaiApiKey?: string     // key desde Supabase
+  placesApiKey?: string     // key desde Supabase
   onLog?: (msg: string) => void
 }
 
@@ -48,7 +50,7 @@ export async function runWorkflowA(config: WorkflowAConfig) {
 
   if (!niche || !city) {
     onLog('🤖 OpenAI: generando frase de búsqueda...')
-    const aiText = await generateNicheQuery(promptA)
+    const aiText = await generateNicheQuery(promptA, config.openaiApiKey)
     onLog(`📝 Frase generada: ${aiText}`)
 
     // Paso 2: Mapeo de texto (nodo "Mapeo de texto" → "Diferenciar nicho de ciudad")
@@ -64,7 +66,7 @@ export async function runWorkflowA(config: WorkflowAConfig) {
   onLog(`🔍 Buscando: "${niche}" en "${city}"`)
 
   // ── Paso 3: Google Places API (nodo "Scrapeo Google Maps1") ─────────────────
-  const placesApiKey = process.env.GOOGLE_PLACES_API_KEY!
+  const placesApiKey = config.placesApiKey || process.env.GOOGLE_PLACES_API_KEY!
   let places: { websiteUri: string }[] = []
 
   try {

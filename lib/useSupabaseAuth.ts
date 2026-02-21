@@ -30,6 +30,10 @@ export function useSupabaseAuth() {
       if (event === 'SIGNED_OUT') {
         localStorage.removeItem(SUPABASE_STORAGE_KEY)
         localStorage.removeItem('google_access_token')
+        localStorage.removeItem('supabase_access_token')
+      }
+      if (session?.access_token) {
+        localStorage.setItem('supabase_access_token', session.access_token)
       }
       setUser(session?.user ?? null)
       setLoading(false)
@@ -41,9 +45,13 @@ export function useSupabaseAuth() {
   return { user, loading }
 }
 
-/** Headers con el Google access token para llamadas a API routes */
+/** Headers con Google access token + Supabase JWT para llamadas a API routes */
 export function getAuthHeaders(): Record<string, string> {
   if (typeof window === 'undefined') return {}
-  const token = localStorage.getItem('google_access_token')
-  return token ? { 'Authorization': `Bearer ${token}` } : {}
+  const google = localStorage.getItem('google_access_token')
+  const sb = localStorage.getItem('supabase_access_token')
+  const headers: Record<string, string> = {}
+  if (google) headers['Authorization'] = `Bearer ${google}`
+  if (sb) headers['x-sb-token'] = sb
+  return headers
 }

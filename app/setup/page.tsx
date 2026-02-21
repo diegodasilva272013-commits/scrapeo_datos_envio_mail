@@ -37,18 +37,34 @@ export default function SetupPage() {
   const [driveStatus, setDriveStatus] = useState<{ ok: boolean; msg: string; count?: number } | null>(null)
   const [driveTesting, setDriveTesting] = useState(false)
 
-  // Cargar estado actual (saber qué keys ya están seteadas)
+  // Cargar credenciales guardadas en Supabase
   useEffect(() => {
-    fetch('/api/setup')
-      .then((r) => r.json())
-      .then((d) => {
-        setStatus(d.status || {})
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-    // Si ya hay token, testear la conexión con Drive automáticamente
-    const token = typeof window !== 'undefined' ? localStorage.getItem('google_access_token') : null
-    if (token) testDrive(token)
+    const sbToken = typeof window !== 'undefined' ? localStorage.getItem('supabase_access_token') : null
+    const gToken = typeof window !== 'undefined' ? localStorage.getItem('google_access_token') : null
+
+    // Cargar desde Supabase
+    if (sbToken) {
+      fetch('/api/credenciales', { headers: { 'x-sb-token': sbToken } })
+        .then((r) => r.json())
+        .then((d) => {
+          const c = d.creds || {}
+          // Marcar como configurados los que ya tienen valor en DB
+          const newStatus: Record<string, boolean> = {}
+          if (c.google_client_id) newStatus['GOOGLE_CLIENT_ID'] = true
+          if (c.google_client_secret) newStatus['GOOGLE_CLIENT_SECRET'] = true
+          if (c.openai_api_key) newStatus['OPENAI_API_KEY'] = true
+          if (c.places_api_key) newStatus['GOOGLE_PLACES_API_KEY'] = true
+          if (c.google_sheet_id) newStatus['GOOGLE_SHEET_ID'] = true
+          setStatus(newStatus)
+        })
+        .catch(() => {})
+        .finally(() => setLoading(false))
+    } else {
+      setLoading(false)
+    }
+
+    // Testear Drive si hay token
+    if (gToken) testDrive(gToken)
   }, [])
 
   const testDrive = async (tokenOverride?: string) => {
@@ -107,7 +123,6 @@ export default function SetupPage() {
     setShow((prev) => ({ ...prev, [key]: !prev[key] }))
 
   const save = async () => {
-    // Validar que vengan las obligatorias
     if (!creds.GOOGLE_CLIENT_ID && !status['GOOGLE_CLIENT_ID']) {
       return setResult({ ok: false, msg: 'El Google Client ID es obligatorio' })
     }
@@ -115,29 +130,42 @@ export default function SetupPage() {
       return setResult({ ok: false, msg: 'La OpenAI API Key es obligatoria' })
     }
 
+    const sbToken = typeof window !== 'undefined' ? localStorage.getItem('supabase_access_token') : null
+    if (!sbToken) return setResult({ ok: false, msg: 'No hay sesión activa. Ingresá con Google primero.' })
+
     setSaving(true)
     setResult(null)
 
-    const res = await fetch('/api/setup', {
+    const res = await fetch('/api/credenciales', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ credentials: creds }),
+      headers: { 'Content-Type': 'application/json', 'x-sb-token': sbToken },
+      body: JSON.stringify({
+        creds: {
+          google_client_id: creds.GOOGLE_CLIENT_ID,
+          google_client_secret: creds.GOOGLE_CLIENT_SECRET,
+          openai_api_key: creds.OPENAI_API_KEY,
+          places_api_key: creds.GOOGLE_PLACES_API_KEY,
+          google_sheet_id: creds.GOOGLE_SHEET_ID,
+        },
+      }),
     })
     const data = await res.json()
 
-    if (res.ok) {
-      // Actualizar estado local
+    if (data.ok) {
       const newStatus: Record<string, boolean> = { ...status }
-      Object.entries(creds).forEach(([k, v]) => {
-        if (v) newStatus[k] = true
-      })
-      newStatus['NEXTAUTH_SECRET'] = true
+      if (creds.GOOGLE_CLIENT_ID) newStatus['GOOGLE_CLIENT_ID'] = true
+      if (creds.GOOGLE_CLIENT_SECRET) newStatus['GOOGLE_CLIENT_SECRET'] = true
+      if (creds.OPENAI_API_KEY) newStatus['OPENAI_API_KEY'] = true
+      if (creds.GOOGLE_PLACES_API_KEY) newStatus['GOOGLE_PLACES_API_KEY'] = true
+      if (creds.GOOGLE_SHEET_ID) newStatus['GOOGLE_SHEET_ID'] = true
       setStatus(newStatus)
-      setCreds(EMPTY) // limpiar campos
-      setResult({ ok: true, msg: data.message })
+      setCreds(EMPTY)
+      setResult({ ok: true, msg: '✓ Credenciales guardadas en tu cuenta' })
     } else {
       setResult({ ok: false, msg: data.error || 'Error guardando credenciales' })
     }
+    setSaving(false)
+  }
     setSaving(false)
   }
 
@@ -263,7 +291,7 @@ export default function SetupPage() {
             required
           />
 
-          {/* Estado de conexión con Drive */}
+          {/* Estado real de conexión con Drive */}
           <div className={`mt-4 rounded-xl border p-4 ${
             driveStatus?.ok
               ? 'bg-green-950/40 border-green-800/50'
@@ -272,27 +300,25 @@ export default function SetupPage() {
               : 'bg-surface-2 border-border'
           }`}>
             <div className="flex items-center justify-between gap-3 flex-wrap">
-              <div className="flex items-center gap-2">
+              <div>
                 {driveTesting ? (
-                  <span className="text-xs text-text-muted animate-pulse">Probando conexión con Drive...</span>
+                  <span className="text-xs text-text-muted animate-pulse">Verificando conexión con Drive...</span>
                 ) : driveStatus?.ok ? (
-                  <span className="text-sm font-semibold text-green-400">✓ {driveStatus.msg}</span>
+                  <p className="text-sm font-semibold text-green-400">✓ {driveStatus.msg}</p>
                 ) : driveStatus ? (
-                  <span className="text-sm font-medium text-red-400">✗ {driveStatus.msg}</span>
+                  <>
+                    <p className="text-sm font-medium text-red-400">✗ {driveStatus.msg}</p>
+                    <p className="text-xs text-text-muted mt-1">Ir a <a href="/login" className="text-accent underline">Login</a> y conectar con Google para obtener acceso a Drive.</p>
+                  </>
                 ) : (
-                  <span className="text-xs text-text-muted">Sin sesión de Google — conectate para ver tus sheets</span>
+                  <p className="text-xs text-text-muted">Sin sesión Google activa. El acceso a Drive se obtiene al hacer Login con Google.</p>
                 )}
               </div>
-              <div className="flex gap-2">
-                {driveStatus?.ok && (
-                  <button onClick={() => testDrive()} disabled={driveTesting} className="btn-secondary text-xs px-3 py-1.5">
-                    {driveTesting ? '...' : '🔄 Re-testear'}
-                  </button>
-                )}
-                <button onClick={connectGoogle} className="btn-primary text-xs px-4 py-1.5">
-                  {driveStatus?.ok ? '🔗 Reconectar Google' : '🔗 Conectar con Google'}
+              {driveStatus?.ok && (
+                <button onClick={() => testDrive()} disabled={driveTesting} className="btn-secondary text-xs px-3 py-1.5">
+                  {driveTesting ? '...' : '🔄 Re-verificar'}
                 </button>
-              </div>
+              )}
             </div>
           </div>
 
