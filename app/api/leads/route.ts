@@ -19,6 +19,6 @@ export async function GET(req: NextRequest) {
     const rows = await readSheet(accessToken, spreadsheetId, sheetName)
     return NextResponse.json({ rows })
   } catch (err) {
-    return NextResponse.json({ error: String(err) }, { status: 500 })
+    return NextResponse.json({ rows: [], error: String(err) }, { status: 200 })
   }
 }
