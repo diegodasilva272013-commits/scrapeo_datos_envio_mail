@@ -13,14 +13,6 @@ export default function DashboardPage() {
   const router = useRouter()
   const [tieneAcceso, setTieneAcceso] = useState<boolean | null>(null)
 
-  useEffect(() => {
-    if (!session?.user?.email) return
-    usuarioActivo(session.user.email).then(setTieneAcceso)
-  }, [session])
-
-  if (status === 'loading' || tieneAcceso === null) return null
-  if (!tieneAcceso) return <SinAcceso />
-
   const [spreadsheetId, setSpreadsheetId] = useState('')
   const [sheetName, setSheetName] = useState('LEADS')
   const [sheets, setSheets] = useState<{ id: string; name: string }[]>([])
@@ -36,10 +28,10 @@ export default function DashboardPage() {
   const [apiStatus, setApiStatus] = useState<Record<string, boolean>>({})
   const [apiChecked, setApiChecked] = useState(false)
 
-  // Auth bypass para testing — no redirige a login
-  // useEffect(() => {
-  //   if (status === 'unauthenticated') router.push('/login')
-  // }, [status, router])
+  useEffect(() => {
+    if (!session?.user?.email) return
+    usuarioActivo(session.user.email).then(setTieneAcceso)
+  }, [session])
 
   // Verificar si las API keys están configuradas
   useEffect(() => {
@@ -122,7 +114,8 @@ export default function DashboardPage() {
     loadStats()
   }
 
-  if (status === 'loading' && !apiChecked) return <LoadingScreen />
+  if (status === 'loading' || tieneAcceso === null) return null
+  if (tieneAcceso === false) return <SinAcceso />
 
   const needsSetup = apiChecked && (!apiStatus['GOOGLE_CLIENT_ID'] || !apiStatus['OPENAI_API_KEY'])
   const needsLogin = !session && apiChecked && apiStatus['GOOGLE_CLIENT_ID']

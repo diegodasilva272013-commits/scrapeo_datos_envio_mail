@@ -17,14 +17,6 @@ export default function LeadsPage() {
   const router = useRouter()
   const [tieneAcceso, setTieneAcceso] = useState<boolean | null>(null)
 
-  useEffect(() => {
-    if (!session?.user?.email) return
-    usuarioActivo(session.user.email).then(setTieneAcceso)
-  }, [session])
-
-  if (status === 'loading' || tieneAcceso === null) return null
-  if (!tieneAcceso) return <SinAcceso />
-
   const [spreadsheetId, setSpreadsheetId] = useState('')
   const [sheets, setSheets] = useState<{ id: string; name: string }[]>([])
   const [leads, setLeads] = useState<Lead[]>([])
@@ -34,10 +26,10 @@ export default function LeadsPage() {
   const [sortCol, setSortCol] = useState<string | null>(null)
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
-  // Auth bypass para testing
-  // useEffect(() => {
-  //   if (status === 'unauthenticated') router.push('/login')
-  // }, [status, router])
+  useEffect(() => {
+    if (!session?.user?.email) return
+    usuarioActivo(session.user.email).then(setTieneAcceso)
+  }, [session])
 
   useEffect(() => {
     if (!session) return
@@ -45,6 +37,9 @@ export default function LeadsPage() {
       .then((r) => r.json())
       .then((d) => setSheets(d.files || []))
   }, [session])
+
+  if (status === 'loading' || tieneAcceso === null) return null
+  if (tieneAcceso === false) return <SinAcceso />
 
   const loadLeads = async () => {
     if (!spreadsheetId) return

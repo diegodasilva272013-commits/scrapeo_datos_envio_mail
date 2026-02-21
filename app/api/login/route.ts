@@ -2,14 +2,17 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
-const supabase = createClient(
-  process.env.SUPABASE_URL!,
-  process.env.SUPABASE_ANON_KEY!
-)
+function getSupabase() {
+  return createClient(
+    process.env.SUPABASE_URL || '',
+    process.env.SUPABASE_ANON_KEY || ''
+  )
+}
 
 export async function POST(req: NextRequest) {
   const { email, password } = await req.json()
 
+  const supabase = getSupabase()
   const { data, error } = await supabase.auth.signInWithPassword({ email, password })
 
   if (error || !data.session) {

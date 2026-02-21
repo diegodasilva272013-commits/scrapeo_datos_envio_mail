@@ -1,6 +1,6 @@
 import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
-import { supabase } from './supabase'
+import { getSupabase } from './supabase'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -25,7 +25,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async signIn({ user }) {
       if (!user.email) return '/login?error=no_email'
-      await supabase.from('usuarios').upsert(
+      await (getSupabase().from('usuarios') as any).upsert(
         { email: user.email },
         { onConflict: 'email', ignoreDuplicates: true }
       )

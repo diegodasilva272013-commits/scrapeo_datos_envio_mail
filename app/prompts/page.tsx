@@ -64,14 +64,6 @@ export default function PromptsPage() {
   const router = useRouter()
   const [tieneAcceso, setTieneAcceso] = useState<boolean | null>(null)
 
-  useEffect(() => {
-    if (!session?.user?.email) return
-    usuarioActivo(session.user.email).then(setTieneAcceso)
-  }, [session])
-
-  if (status === 'loading' || tieneAcceso === null) return null
-  if (!tieneAcceso) return <SinAcceso />
-
   const [spreadsheetId, setSpreadsheetId] = useState('')
   const [sheets, setSheets] = useState<{ id: string; name: string }[]>([])
   const [promptA, setPromptA] = useState(DEFAULT_PROMPT_A)
@@ -79,10 +71,10 @@ export default function PromptsPage() {
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
 
-  // Auth bypass para testing
-  // useEffect(() => {
-  //   if (status === 'unauthenticated') router.push('/login')
-  // }, [status, router])
+  useEffect(() => {
+    if (!session?.user?.email) return
+    usuarioActivo(session.user.email).then(setTieneAcceso)
+  }, [session])
 
   useEffect(() => {
     if (!session) return
@@ -90,6 +82,9 @@ export default function PromptsPage() {
       .then((r) => r.json())
       .then((d) => setSheets(d.files || []))
   }, [session])
+
+  if (status === 'loading' || tieneAcceso === null) return null
+  if (tieneAcceso === false) return <SinAcceso />
 
   useEffect(() => {
     if (!spreadsheetId) return
