@@ -1,4 +1,5 @@
 'use client'
+export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
@@ -26,6 +27,7 @@ export default function DashboardPage() {
 
   const [sheetsError, setSheetsError] = useState<string | null>(null)
   const [sheetsLoading, setSheetsLoading] = useState(false)
+  const [stats, setStats] = useState({ total: 0, pending: 0, sent: 0 })
   const [apiStatus, setApiStatus] = useState<Record<string, boolean>>({})
   const [apiChecked, setApiChecked] = useState(false)
 
