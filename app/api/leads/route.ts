@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { readSheet } from '@/lib/googleSheets'
 
 export async function GET(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session?.accessToken) {
+  const accessToken = req.headers.get('authorization')?.replace('Bearer ', '')
+  if (!accessToken) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   }
 
@@ -18,7 +16,7 @@ export async function GET(req: NextRequest) {
   }
 
   try {
-    const rows = await readSheet(session.accessToken, spreadsheetId, sheetName)
+    const rows = await readSheet(accessToken, spreadsheetId, sheetName)
     return NextResponse.json({ rows })
   } catch (err) {
     return NextResponse.json({ error: String(err) }, { status: 500 })

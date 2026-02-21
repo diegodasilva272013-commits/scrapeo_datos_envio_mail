@@ -1,11 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { getServerSession } from 'next-auth'
-import { authOptions } from '@/lib/auth'
 import { runWorkflowA } from '@/lib/workflows/workflowA'
 
 export async function POST(req: NextRequest) {
-  const session = await getServerSession(authOptions)
-  if (!session?.accessToken) {
+  const accessToken = req.headers.get('authorization')?.replace('Bearer ', '')
+  if (!accessToken) {
     return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
   }
 
@@ -20,7 +18,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const result = await runWorkflowA({
-      accessToken: session.accessToken,
+      accessToken: accessToken,
       spreadsheetId,
       sheetName,
       niche,

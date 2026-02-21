@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
 
 function LoginContent() {
   const router = useRouter()
@@ -15,23 +16,39 @@ function LoginContent() {
   const loginEmail = async () => {
     setLoading(true)
     setError('')
-    const res = await fetch('/api/login', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email, password }),
-    })
-    const data = await res.json()
-    if (res.ok) {
-      document.cookie = `sb-user-email=${encodeURIComponent(email)};path=/;max-age=${60 * 60 * 24 * 7};samesite=lax`
-      router.push('/dashboard')
-    } else {
-      setError(data.error || 'Email o contraseña incorrectos')
+    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
+    if (authError || !data.session) {
+      setError('Email o contraseña incorrectos')
+      setLoading(false)
+      return
     }
-    setLoading(false)
+    // Verificar que el usuario está activo
+    const { data: usuario } = await supabase
+      .from('usuarios')
+      .select('activo')
+      .eq('email', email)
+      .single()
+    if (usuario && !usuario.activo) {
+      await supabase.auth.signOut()
+      setError('Tu cuenta no está activa. Contactá a Areté.')
+      setLoading(false)
+      return
+    }
+    router.push('/dashboard')
   }
 
-  const loginGoogle = () => {
-    window.location.href = `https://hvpvjjaobcaykolxtdhz.supabase.co/auth/v1/authorize?provider=google&redirect_to=${window.location.origin}/auth/callback`
+  const loginGoogle = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        redirectTo: `${window.location.origin}/auth/callback`,
+        scopes: 'openid email profile https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive.readonly https://www.googleapis.com/auth/gmail.send',
+        queryParams: {
+          access_type: 'offline',
+          prompt: 'consent',
+        },
+      },
+    })
   }
 
   return (

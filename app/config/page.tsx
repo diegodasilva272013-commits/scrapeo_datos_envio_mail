@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import SinAcceso from '@/components/SinAcceso'
 import { usuarioActivo } from '@/lib/supabase'
+import { useSupabaseAuth, getAuthHeaders } from '@/lib/useSupabaseAuth'
 
 const DEFAULT_CONFIG = {
   country: 'Argentina',
@@ -25,7 +25,7 @@ const DEFAULT_CONFIG = {
 }
 
 export default function ConfigPage() {
-  const { data: session, status } = useSession()
+  const { user, loading: authLoading } = useSupabaseAuth()
   const router = useRouter()
   const [tieneAcceso, setTieneAcceso] = useState<boolean | null>(null)
 
@@ -36,23 +36,23 @@ export default function ConfigPage() {
   const [saved, setSaved] = useState(false)
 
   useEffect(() => {
-    if (!session?.user?.email) return
-    usuarioActivo(session.user.email).then(setTieneAcceso)
-  }, [session])
+    if (!user?.email) return
+    usuarioActivo(user.email).then(setTieneAcceso)
+  }, [user])
 
   useEffect(() => {
-    if (!session) return
-    fetch('/api/sheets')
+    if (!user) return
+    fetch('/api/sheets', { headers: getAuthHeaders() })
       .then((r) => r.json())
       .then((d) => setSheets(d.files || []))
-  }, [session])
+  }, [user])
 
-  if (status === 'loading' || tieneAcceso === null) return null
+  if (authLoading || tieneAcceso === null) return null
   if (tieneAcceso === false) return <SinAcceso />
 
   useEffect(() => {
     if (!spreadsheetId) return
-    fetch(`/api/config?spreadsheetId=${spreadsheetId}`)
+    fetch(`/api/config?spreadsheetId=${spreadsheetId}`, { headers: getAuthHeaders() })
       .then((r) => r.json())
       .then((d) => {
         if (d.config && Object.keys(d.config).length > 0) {
@@ -66,7 +66,7 @@ export default function ConfigPage() {
     setSaving(true)
     await fetch('/api/config', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ spreadsheetId, config }),
     })
     setSaving(false)

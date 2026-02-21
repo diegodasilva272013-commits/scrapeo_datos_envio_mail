@@ -1,11 +1,11 @@
 'use client'
 
 import { useState, useEffect, useMemo } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import SinAcceso from '@/components/SinAcceso'
 import { usuarioActivo } from '@/lib/supabase'
+import { useSupabaseAuth, getAuthHeaders } from '@/lib/useSupabaseAuth'
 import * as XLSX from 'xlsx'
 
 type Lead = Record<string, string>
@@ -13,7 +13,7 @@ type Lead = Record<string, string>
 const COLUMNS = ['Web', 'Correo', 'Correo Icebreaker', 'Estado', 'Fecha Scrapeo', 'Fecha Envío', 'Ultimo Error']
 
 export default function LeadsPage() {
-  const { data: session, status } = useSession()
+  const { user, loading: authLoading } = useSupabaseAuth()
   const router = useRouter()
   const [tieneAcceso, setTieneAcceso] = useState<boolean | null>(null)
 
@@ -27,24 +27,24 @@ export default function LeadsPage() {
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('asc')
 
   useEffect(() => {
-    if (!session?.user?.email) return
-    usuarioActivo(session.user.email).then(setTieneAcceso)
-  }, [session])
+    if (!user?.email) return
+    usuarioActivo(user.email).then(setTieneAcceso)
+  }, [user])
 
   useEffect(() => {
-    if (!session) return
-    fetch('/api/sheets')
+    if (!user) return
+    fetch('/api/sheets', { headers: getAuthHeaders() })
       .then((r) => r.json())
       .then((d) => setSheets(d.files || []))
-  }, [session])
+  }, [user])
 
-  if (status === 'loading' || tieneAcceso === null) return null
+  if (authLoading || tieneAcceso === null) return null
   if (tieneAcceso === false) return <SinAcceso />
 
   const loadLeads = async () => {
     if (!spreadsheetId) return
     setLoading(true)
-    const res = await fetch(`/api/leads?spreadsheetId=${spreadsheetId}&sheetName=LEADS`)
+    const res = await fetch(`/api/leads?spreadsheetId=${spreadsheetId}&sheetName=LEADS`, { headers: getAuthHeaders() })
     const data = await res.json()
     setLeads(data.rows || [])
     setLoading(false)

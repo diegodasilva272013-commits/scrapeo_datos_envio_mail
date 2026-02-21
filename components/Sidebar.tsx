@@ -2,8 +2,9 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { signOut, useSession } from 'next-auth/react'
-import Image from 'next/image'
+import { useRouter } from 'next/navigation'
+import { supabase } from '@/lib/supabase'
+import { useSupabaseAuth } from '@/lib/useSupabaseAuth'
 import { AreteLogo } from './AreteLogo'
 
 const NAV = [
@@ -16,7 +17,14 @@ const NAV = [
 
 export default function Sidebar() {
   const pathname = usePathname()
-  const { data: session } = useSession()
+  const router = useRouter()
+  const { user } = useSupabaseAuth()
+
+  const handleSignOut = async () => {
+    localStorage.removeItem('google_access_token')
+    await supabase.auth.signOut()
+    router.push('/login')
+  }
 
   return (
     <aside className="w-64 min-h-screen bg-surface border-r border-border flex flex-col">
@@ -60,16 +68,16 @@ export default function Sidebar() {
       </div>
 
       {/* ── Usuario ── */}
-      {session?.user && (
+      {user && (
         <div className="p-4 border-t border-border">
           <div className="flex items-center gap-3 mb-3">
-            {session.user.image && <Image src={session.user.image} alt="avatar" width={32} height={32} className="rounded-full" />}
+            {user.user_metadata?.avatar_url && <img src={user.user_metadata.avatar_url} alt="avatar" width={32} height={32} className="rounded-full" />}
             <div className="flex-1 min-w-0">
-              <p className="text-text text-sm font-medium truncate font-body">{session.user.name}</p>
-              <p className="text-muted text-xs truncate font-mono">{session.user.email}</p>
+              <p className="text-text text-sm font-medium truncate font-body">{user.user_metadata?.full_name || user.email}</p>
+              <p className="text-muted text-xs truncate font-mono">{user.email}</p>
             </div>
           </div>
-          <button onClick={() => signOut({ callbackUrl: '/login' })}
+          <button onClick={handleSignOut}
             className="w-full text-left text-muted hover:text-danger text-xs font-mono transition-colors">
             Cerrar sesión →
           </button>

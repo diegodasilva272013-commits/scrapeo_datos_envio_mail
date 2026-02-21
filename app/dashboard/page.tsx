@@ -1,15 +1,15 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import LogViewer from '@/components/LogViewer'
 import SinAcceso from '@/components/SinAcceso'
 import { usuarioActivo } from '@/lib/supabase'
+import { useSupabaseAuth, getAuthHeaders } from '@/lib/useSupabaseAuth'
 
 export default function DashboardPage() {
-  const { data: session, status } = useSession()
+  const { user, loading: authLoading } = useSupabaseAuth()
   const router = useRouter()
   const [tieneAcceso, setTieneAcceso] = useState<boolean | null>(null)
 
@@ -29,9 +29,9 @@ export default function DashboardPage() {
   const [apiChecked, setApiChecked] = useState(false)
 
   useEffect(() => {
-    if (!session?.user?.email) return
-    usuarioActivo(session.user.email).then(setTieneAcceso)
-  }, [session])
+    if (!user?.email) return
+    usuarioActivo(user.email).then(setTieneAcceso)
+  }, [user])
 
   // Verificar si las API keys están configuradas
   useEffect(() => {
@@ -43,16 +43,16 @@ export default function DashboardPage() {
 
   // Cargar spreadsheets
   useEffect(() => {
-    if (!session) return
-    fetch('/api/sheets')
+    if (!user) return
+    fetch('/api/sheets', { headers: getAuthHeaders() })
       .then((r) => r.json())
       .then((d) => setSheets(d.files || []))
-  }, [session])
+  }, [user])
 
   // Cargar tabs cuando se elige una sheet
   useEffect(() => {
     if (!spreadsheetId) return
-    fetch(`/api/sheets?spreadsheetId=${spreadsheetId}`)
+    fetch(`/api/sheets?spreadsheetId=${spreadsheetId}`, { headers: getAuthHeaders() })
       .then((r) => r.json())
       .then((d) => setTabs(d.tabs || []))
     loadStats()
@@ -61,7 +61,7 @@ export default function DashboardPage() {
 
   const loadStats = async () => {
     if (!spreadsheetId) return
-    const res = await fetch(`/api/leads?spreadsheetId=${spreadsheetId}&sheetName=${sheetName}`)
+    const res = await fetch(`/api/leads?spreadsheetId=${spreadsheetId}&sheetName=${sheetName}`, { headers: getAuthHeaders() })
     const data = await res.json()
     const rows: Record<string, string>[] = data.rows || []
     setStats({
@@ -74,7 +74,7 @@ export default function DashboardPage() {
   const createFromTemplate = async () => {
     const res = await fetch('/api/sheets', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ title: 'LeadFlow - Leads' }),
     })
     const data = await res.json()
@@ -89,7 +89,7 @@ export default function DashboardPage() {
 
     const res = await fetch('/api/workflow-a', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ spreadsheetId, sheetName, emailsPerDay }),
     })
     const data = await res.json()
@@ -105,7 +105,7 @@ export default function DashboardPage() {
 
     const res = await fetch('/api/workflow-b', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       body: JSON.stringify({ spreadsheetId, sheetName, emailsPerDay }),
     })
     const data = await res.json()
@@ -114,11 +114,11 @@ export default function DashboardPage() {
     loadStats()
   }
 
-  if (status === 'loading' || tieneAcceso === null) return null
+  if (authLoading || tieneAcceso === null) return null
   if (tieneAcceso === false) return <SinAcceso />
 
   const needsSetup = apiChecked && (!apiStatus['GOOGLE_CLIENT_ID'] || !apiStatus['OPENAI_API_KEY'])
-  const needsLogin = !session && apiChecked && apiStatus['GOOGLE_CLIENT_ID']
+  const needsLogin = !user && apiChecked && apiStatus['GOOGLE_CLIENT_ID']
 
   return (
     <div className="flex min-h-screen bg-bg">
