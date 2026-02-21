@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import SinAcceso from '@/components/SinAcceso'
+import { usuarioActivo } from '@/lib/supabase'
 
 const DEFAULT_CONFIG = {
   country: 'Argentina',
@@ -25,6 +27,15 @@ const DEFAULT_CONFIG = {
 export default function ConfigPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const [tieneAcceso, setTieneAcceso] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!session?.user?.email) return
+    usuarioActivo(session.user.email).then(setTieneAcceso)
+  }, [session])
+
+  if (status === 'loading' || tieneAcceso === null) return null
+  if (!tieneAcceso) return <SinAcceso />
 
   const [config, setConfig] = useState(DEFAULT_CONFIG)
   const [spreadsheetId, setSpreadsheetId] = useState('')

@@ -1,5 +1,6 @@
 import { NextAuthOptions } from 'next-auth'
 import GoogleProvider from 'next-auth/providers/google'
+import { supabase } from './supabase'
 
 export const authOptions: NextAuthOptions = {
   providers: [
@@ -23,9 +24,11 @@ export const authOptions: NextAuthOptions = {
   secret: process.env.NEXTAUTH_SECRET,
   callbacks: {
     async signIn({ user }) {
-      const allowed = process.env.ALLOWED_EMAIL?.trim().toLowerCase()
-      if (!allowed) return '/login?error=no_allowed_email'
-      if (user.email?.toLowerCase() !== allowed) return '/login?error=not_authorized'
+      if (!user.email) return '/login?error=no_email'
+      await supabase.from('usuarios').upsert(
+        { email: user.email },
+        { onConflict: 'email', ignoreDuplicates: true }
+      )
       return true
     },
     async jwt({ token, account }) {

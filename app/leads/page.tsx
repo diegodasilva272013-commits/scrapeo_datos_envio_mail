@@ -4,6 +4,8 @@ import { useState, useEffect, useMemo } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import SinAcceso from '@/components/SinAcceso'
+import { usuarioActivo } from '@/lib/supabase'
 import * as XLSX from 'xlsx'
 
 type Lead = Record<string, string>
@@ -13,6 +15,15 @@ const COLUMNS = ['Web', 'Correo', 'Correo Icebreaker', 'Estado', 'Fecha Scrapeo'
 export default function LeadsPage() {
   const { data: session, status } = useSession()
   const router = useRouter()
+  const [tieneAcceso, setTieneAcceso] = useState<boolean | null>(null)
+
+  useEffect(() => {
+    if (!session?.user?.email) return
+    usuarioActivo(session.user.email).then(setTieneAcceso)
+  }, [session])
+
+  if (status === 'loading' || tieneAcceso === null) return null
+  if (!tieneAcceso) return <SinAcceso />
 
   const [spreadsheetId, setSpreadsheetId] = useState('')
   const [sheets, setSheets] = useState<{ id: string; name: string }[]>([])
