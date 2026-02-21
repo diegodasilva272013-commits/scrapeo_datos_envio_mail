@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
 import LogViewer from '@/components/LogViewer'
 import SinAcceso from '@/components/SinAcceso'
-import { usuarioActivo } from '@/lib/supabase'
+import { supabase, usuarioActivo } from '@/lib/supabase'
 import { useSupabaseAuth, getAuthHeaders } from '@/lib/useSupabaseAuth'
 
 export default function DashboardPage() {
@@ -24,7 +24,8 @@ export default function DashboardPage() {
   const [runningA, setRunningA] = useState(false)
   const [runningB, setRunningB] = useState(false)
 
-  const [stats, setStats] = useState({ total: 0, pending: 0, sent: 0 })
+  const [sheetsError, setSheetsError] = useState<string | null>(null)
+  const [sheetsLoading, setSheetsLoading] = useState(false)
   const [apiStatus, setApiStatus] = useState<Record<string, boolean>>({})
   const [apiChecked, setApiChecked] = useState(false)
 
@@ -44,9 +45,21 @@ export default function DashboardPage() {
   // Cargar spreadsheets
   useEffect(() => {
     if (!user) return
+    const token = typeof window !== 'undefined' ? localStorage.getItem('google_access_token') : null
+    if (!token) {
+      setSheetsError('no_token')
+      return
+    }
+    setSheetsLoading(true)
+    setSheetsError(null)
     fetch('/api/sheets', { headers: getAuthHeaders() })
       .then((r) => r.json())
-      .then((d) => setSheets(d.files || []))
+      .then((d) => {
+        if (d.error) { setSheetsError(d.error); setSheetsLoading(false); return }
+        setSheets(d.files || [])
+        setSheetsLoading(false)
+      })
+      .catch((e) => { setSheetsError(e.message); setSheetsLoading(false) })
   }, [user])
 
   // Cargar tabs cuando se elige una sheet
@@ -180,41 +193,84 @@ export default function DashboardPage() {
 
           {/* Sheet selector */}
           <div className="card mb-6 animate-slide-up" style={{ animationDelay: '0.05s' }}>
-            <h2 className="font-display text-base font-semibold text-text mb-4">
-              📋 Google Spreadsheet
-            </h2>
-            <div className="flex gap-3 flex-wrap items-end">
-              <div className="flex-1 min-w-48">
-                <label className="label">Elegir spreadsheet</label>
-                <select
-                  className="input"
-                  value={spreadsheetId}
-                  onChange={(e) => setSpreadsheetId(e.target.value)}
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="font-display text-base font-semibold text-text">
+                📋 Google Spreadsheet
+              </h2>
+              {sheetsLoading && (
+                <span className="text-xs text-text-muted animate-pulse">Conectando…</span>
+              )}
+              {!sheetsLoading && sheetsError && (
+                <span className="text-xs font-medium text-red-400">✗ Sin conexión</span>
+              )}
+              {!sheetsLoading && !sheetsError && sheets.length > 0 && (
+                <span className="text-xs font-medium text-green-400">✓ Conectado</span>
+              )}
+            </div>
+
+            {(sheetsError === 'no_token' || sheetsError === 'No autenticado') ? (
+              <div className="rounded-lg bg-red-950/40 border border-red-800/50 p-4">
+                <p className="text-sm text-red-300 mb-3">
+                  {sheetsError === 'no_token'
+                    ? 'No se encontró el token de Google. Reconectá para acceder a tus sheets.'
+                    : 'Tu sesión de Google expiró. Reconectá para continuar.'}
+                </p>
+                <button
+                  onClick={() =>
+                    supabase.auth.signInWithOAuth({
+                      provider: 'google',
+                      options: {
+                        scopes: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive',
+                        redirectTo: `${window.location.origin}/auth/callback`,
+                      },
+                    })
+                  }
+                  className="btn-primary text-sm"
                 >
-                  <option value="">— Seleccioná una sheet —</option>
-                  {sheets.map((s) => (
-                    <option key={s.id} value={s.id}>{s.name}</option>
-                  ))}
-                </select>
+                  🔗 Reconectar con Google
+                </button>
               </div>
-              {tabs.length > 0 && (
-                <div className="w-48">
-                  <label className="label">Tab (pestaña)</label>
+            ) : sheetsError ? (
+              <div className="rounded-lg bg-red-950/40 border border-red-800/50 p-3 mb-3">
+                <p className="text-sm text-red-300">Error: {sheetsError}</p>
+              </div>
+            ) : null}
+
+            {!sheetsError && (
+              <div className="flex gap-3 flex-wrap items-end">
+                <div className="flex-1 min-w-48">
+                  <label className="label">Elegir spreadsheet</label>
                   <select
                     className="input"
-                    value={sheetName}
-                    onChange={(e) => setSheetName(e.target.value)}
+                    value={spreadsheetId}
+                    onChange={(e) => setSpreadsheetId(e.target.value)}
+                    disabled={sheetsLoading}
                   >
-                    {tabs.map((t) => (
-                      <option key={t.id} value={t.name}>{t.name}</option>
+                    <option value="">— Seleccioná una sheet —</option>
+                    {sheets.map((s) => (
+                      <option key={s.id} value={s.id}>{s.name}</option>
                     ))}
                   </select>
                 </div>
-              )}
-              <button onClick={createFromTemplate} className="btn-secondary whitespace-nowrap">
-                ✨ Crear desde template
-              </button>
-            </div>
+                {tabs.length > 0 && (
+                  <div className="w-48">
+                    <label className="label">Tab (pestaña)</label>
+                    <select
+                      className="input"
+                      value={sheetName}
+                      onChange={(e) => setSheetName(e.target.value)}
+                    >
+                      {tabs.map((t) => (
+                        <option key={t.id} value={t.name}>{t.name}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <button onClick={createFromTemplate} className="btn-secondary whitespace-nowrap">
+                  ✨ Crear desde template
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Stats */}
