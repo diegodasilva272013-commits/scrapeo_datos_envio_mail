@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import Sidebar from '@/components/Sidebar'
+import { supabase } from '@/lib/supabase'
 
 interface Creds {
   GOOGLE_CLIENT_ID: string
@@ -30,6 +31,9 @@ export default function SetupPage() {
   const [saving, setSaving] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
   const [loading, setLoading] = useState(true)
+  const [verifying, setVerifying] = useState<Record<string, boolean>>({})
+  const [verifyResult, setVerifyResult] = useState<Record<string, { ok: boolean; msg: string }>>({})
+  const [googleConnected, setGoogleConnected] = useState<boolean | null>(null)
 
   // Cargar estado actual (saber qué keys ya están seteadas)
   useEffect(() => {
@@ -40,7 +44,36 @@ export default function SetupPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
+    // Verificar si ya hay sesión Google activa
+    const token = typeof window !== 'undefined' ? localStorage.getItem('google_access_token') : null
+    setGoogleConnected(!!token)
   }, [])
+
+  const verify = async (type: string, key?: string) => {
+    setVerifying((p) => ({ ...p, [type]: true }))
+    try {
+      const res = await fetch('/api/setup/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type, key }),
+      })
+      const data = await res.json()
+      setVerifyResult((p) => ({ ...p, [type]: data }))
+    } catch (e: any) {
+      setVerifyResult((p) => ({ ...p, [type]: { ok: false, msg: e.message } }))
+    }
+    setVerifying((p) => ({ ...p, [type]: false }))
+  }
+
+  const testGoogleLogin = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: {
+        scopes: 'https://www.googleapis.com/auth/spreadsheets https://www.googleapis.com/auth/drive',
+        redirectTo: `${window.location.origin}/auth/callback`,
+      },
+    })
+  }
 
   const set = (key: keyof Creds, val: string) =>
     setCreds((prev) => ({ ...prev, [key]: val }))
@@ -205,11 +238,42 @@ export default function SetupPage() {
             required
           />
 
+          {/* Verificar Google OAuth */}
+          <div className="mt-3 flex items-center gap-3 flex-wrap">
+            {googleConnected ? (
+              <span className="text-xs font-medium text-green-400 flex items-center gap-1">
+                ✓ Google conectado — sesión activa
+              </span>
+            ) : (
+              <span className="text-xs text-text-muted">Sin sesión Google activa</span>
+            )}
+            <button
+              onClick={testGoogleLogin}
+              className="btn-secondary text-xs px-3 py-1.5 ml-auto"
+            >
+              🔗 Probar Login con Google
+            </button>
+            <button
+              onClick={() => verify('google-oauth', creds.GOOGLE_CLIENT_ID || undefined)}
+              disabled={verifying['google-oauth']}
+              className="btn-secondary text-xs px-3 py-1.5"
+            >
+              {verifying['google-oauth'] ? '...' : '🔍 Verificar Client ID'}
+            </button>
+          </div>
+          {verifyResult['google-oauth'] && (
+            <p className={`text-xs mt-2 font-mono ${
+              verifyResult['google-oauth'].ok ? 'text-green-400' : 'text-red-400'
+            }`}>
+              {verifyResult['google-oauth'].msg}
+            </p>
+          )}
+
           <div className="mt-3 bg-surface-2 rounded-xl px-4 py-3 border border-border">
             <p className="text-text-dim text-xs font-mono leading-relaxed">
               📋 En Google Cloud Console:<br/>
               <span className="text-text">APIs y servicios → Credenciales → Crear credencial → OAuth 2.0</span><br/>
-              Redirect URI autorizado: <code className="text-accent">http://localhost:3000/api/auth/callback/google</code>
+              Redirect URI: <code className="text-accent">{typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback</code>
             </p>
           </div>
         </div>
@@ -240,6 +304,22 @@ export default function SetupPage() {
             onToggle={() => toggleShow('oai')}
             required
           />
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={() => verify('openai', creds.OPENAI_API_KEY || undefined)}
+              disabled={verifying['openai']}
+              className="btn-secondary text-xs px-3 py-1.5"
+            >
+              {verifying['openai'] ? '...' : '🔍 Verificar OpenAI'}
+            </button>
+            {verifyResult['openai'] && (
+              <span className={`text-xs font-mono ${
+                verifyResult['openai'].ok ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {verifyResult['openai'].msg}
+              </span>
+            )}
+          </div>
         </div>
 
         {/* Google Places */}
@@ -260,6 +340,22 @@ export default function SetupPage() {
             show={show['places']}
             onToggle={() => toggleShow('places')}
           />
+          <div className="mt-2 flex items-center gap-2">
+            <button
+              onClick={() => verify('places', creds.GOOGLE_PLACES_API_KEY || undefined)}
+              disabled={verifying['places']}
+              className="btn-secondary text-xs px-3 py-1.5"
+            >
+              {verifying['places'] ? '...' : '🔍 Verificar Places'}
+            </button>
+            {verifyResult['places'] && (
+              <span className={`text-xs font-mono ${
+                verifyResult['places'].ok ? 'text-green-400' : 'text-red-400'
+              }`}>
+                {verifyResult['places'].msg}
+              </span>
+            )}
+          </div>
 
           <p className="text-muted text-xs font-mono mt-2">
             Google Cloud → APIs → Habilitar "Places API (New)" → Credenciales → API Key
