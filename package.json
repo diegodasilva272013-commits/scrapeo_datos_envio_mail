@@ -11,6 +11,7 @@
     "node": ">=18"
   },
   "dependencies": {
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.97.0",
     "@types/node": "^20",
     "@types/node-cron": "^3.0.11",
