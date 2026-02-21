@@ -2,6 +2,7 @@
 
 import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import { signIn } from 'next-auth/react'
 import { supabase } from '@/lib/supabase'
 
 function LoginContent() {
@@ -33,14 +34,21 @@ function LoginContent() {
   }
 
   const loginGoogle = async () => {
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
-      options: {
-        redirectTo: `${window.location.origin}/auth/callback`,
-      },
-    })
-    if (error) {
-      setError('Error al conectar con Google: ' + error.message)
+    try {
+      const { error } = await supabase.auth.signInWithOAuth({
+        provider: 'google',
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback`,
+        },
+      })
+      if (error) {
+        console.warn('Supabase OAuth falló, usando NextAuth:', error.message)
+        signIn('google', { callbackUrl: '/dashboard' })
+      }
+    } catch (e) {
+      // Supabase no configurado → fallback a NextAuth
+      console.warn('Supabase no disponible, usando NextAuth')
+      signIn('google', { callbackUrl: '/dashboard' })
     }
   }
 
