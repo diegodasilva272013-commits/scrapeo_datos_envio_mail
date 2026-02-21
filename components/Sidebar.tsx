@@ -11,6 +11,7 @@ const NAV = [
   { href: '/leads', label: 'Leads', icon: IconLeads },
   { href: '/config', label: 'Configuración', icon: IconConfig },
   { href: '/prompts', label: 'Prompts IA', icon: IconPrompts },
+  { href: '/credenciales', label: 'Credenciales Google', icon: IconKey },
 ]
 
 export default function Sidebar() {
