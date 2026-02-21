@@ -33,7 +33,8 @@ export default function SetupPage() {
   const [loading, setLoading] = useState(true)
   const [verifying, setVerifying] = useState<Record<string, boolean>>({})
   const [verifyResult, setVerifyResult] = useState<Record<string, { ok: boolean; msg: string }>>({})
-  const [googleConnected, setGoogleConnected] = useState<boolean | null>(null)
+  const [driveStatus, setDriveStatus] = useState<{ ok: boolean; msg: string; count?: number } | null>(null)
+  const [driveTesting, setDriveTesting] = useState(false)
 
   // Cargar estado actual (saber qué keys ya están seteadas)
   useEffect(() => {
@@ -44,10 +45,33 @@ export default function SetupPage() {
         setLoading(false)
       })
       .catch(() => setLoading(false))
-    // Verificar si ya hay sesión Google activa
+    // Si ya hay token, testear la conexión con Drive automáticamente
     const token = typeof window !== 'undefined' ? localStorage.getItem('google_access_token') : null
-    setGoogleConnected(!!token)
+    if (token) testDrive(token)
   }, [])
+
+  const testDrive = async (tokenOverride?: string) => {
+    const token = tokenOverride || (typeof window !== 'undefined' ? localStorage.getItem('google_access_token') : null)
+    if (!token) {
+      setDriveStatus({ ok: false, msg: 'No conectado — hacé Login con Google primero' })
+      return
+    }
+    setDriveTesting(true)
+    setDriveStatus(null)
+    try {
+      const res = await fetch('/api/sheets', { headers: { Authorization: `Bearer ${token}` } })
+      const data = await res.json()
+      if (data.error) {
+        setDriveStatus({ ok: false, msg: data.error })
+      } else {
+        const count = (data.files || []).length
+        setDriveStatus({ ok: true, msg: `Conectado — ${count} spreadsheet${count !== 1 ? 's' : ''} en tu Drive`, count })
+      }
+    } catch (e: any) {
+      setDriveStatus({ ok: false, msg: e.message || 'Error de red' })
+    }
+    setDriveTesting(false)
+  }
 
   const verify = async (type: string, key?: string) => {
     setVerifying((p) => ({ ...p, [type]: true }))
@@ -65,7 +89,7 @@ export default function SetupPage() {
     setVerifying((p) => ({ ...p, [type]: false }))
   }
 
-  const testGoogleLogin = async () => {
+  const connectGoogle = async () => {
     await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: {
@@ -238,41 +262,42 @@ export default function SetupPage() {
             required
           />
 
-          {/* Verificar Google OAuth */}
-          <div className="mt-3 flex items-center gap-3 flex-wrap">
-            {googleConnected ? (
-              <span className="text-xs font-medium text-green-400 flex items-center gap-1">
-                ✓ Google conectado — sesión activa
-              </span>
-            ) : (
-              <span className="text-xs text-text-muted">Sin sesión Google activa</span>
-            )}
-            <button
-              onClick={testGoogleLogin}
-              className="btn-secondary text-xs px-3 py-1.5 ml-auto"
-            >
-              🔗 Probar Login con Google
-            </button>
-            <button
-              onClick={() => verify('google-oauth', creds.GOOGLE_CLIENT_ID || undefined)}
-              disabled={verifying['google-oauth']}
-              className="btn-secondary text-xs px-3 py-1.5"
-            >
-              {verifying['google-oauth'] ? '...' : '🔍 Verificar Client ID'}
-            </button>
+          {/* Estado de conexión con Drive */}
+          <div className={`mt-4 rounded-xl border p-4 ${
+            driveStatus?.ok
+              ? 'bg-green-950/40 border-green-800/50'
+              : driveStatus && !driveStatus.ok
+              ? 'bg-red-950/40 border-red-800/50'
+              : 'bg-surface-2 border-border'
+          }`}>
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div className="flex items-center gap-2">
+                {driveTesting ? (
+                  <span className="text-xs text-text-muted animate-pulse">Probando conexión con Drive...</span>
+                ) : driveStatus?.ok ? (
+                  <span className="text-sm font-semibold text-green-400">✓ {driveStatus.msg}</span>
+                ) : driveStatus ? (
+                  <span className="text-sm font-medium text-red-400">✗ {driveStatus.msg}</span>
+                ) : (
+                  <span className="text-xs text-text-muted">Sin sesión de Google — conectate para ver tus sheets</span>
+                )}
+              </div>
+              <div className="flex gap-2">
+                {driveStatus?.ok && (
+                  <button onClick={() => testDrive()} disabled={driveTesting} className="btn-secondary text-xs px-3 py-1.5">
+                    {driveTesting ? '...' : '🔄 Re-testear'}
+                  </button>
+                )}
+                <button onClick={connectGoogle} className="btn-primary text-xs px-4 py-1.5">
+                  {driveStatus?.ok ? '🔗 Reconectar Google' : '🔗 Conectar con Google'}
+                </button>
+              </div>
+            </div>
           </div>
-          {verifyResult['google-oauth'] && (
-            <p className={`text-xs mt-2 font-mono ${
-              verifyResult['google-oauth'].ok ? 'text-green-400' : 'text-red-400'
-            }`}>
-              {verifyResult['google-oauth'].msg}
-            </p>
-          )}
 
           <div className="mt-3 bg-surface-2 rounded-xl px-4 py-3 border border-border">
             <p className="text-text-dim text-xs font-mono leading-relaxed">
-              📋 En Google Cloud Console:<br/>
-              <span className="text-text">APIs y servicios → Credenciales → Crear credencial → OAuth 2.0</span><br/>
+              📋 En Google Cloud Console → APIs y servicios → Credenciales → Crear credencial → OAuth 2.0<br/>
               Redirect URI: <code className="text-accent">{typeof window !== 'undefined' ? window.location.origin : ''}/auth/callback</code>
             </p>
           </div>
