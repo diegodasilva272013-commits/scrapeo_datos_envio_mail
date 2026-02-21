@@ -47,6 +47,29 @@ export default function LeadsPage() {
       .catch(() => setLoading(false))
   }, [spreadsheetId])
 
+  const filtered = useMemo(() => {
+    let rows = leads
+    if (search) {
+      const q = search.toLowerCase()
+      rows = rows.filter((r) =>
+        Object.values(r).some((v) => v?.toLowerCase().includes(q))
+      )
+    }
+    if (filterEstado) {
+      rows = rows.filter((r) => r['Estado'] === filterEstado)
+    }
+    if (sortCol) {
+      rows = [...rows].sort((a, b) => {
+        const av = (a[sortCol] || '').toLowerCase()
+        const bv = (b[sortCol] || '').toLowerCase()
+        if (av < bv) return sortDir === 'asc' ? -1 : 1
+        if (av > bv) return sortDir === 'asc' ? 1 : -1
+        return 0
+      })
+    }
+    return rows
+  }, [leads, search, filterEstado, sortCol, sortDir])
+
   if (authLoading || tieneAcceso === null) return null
   if (tieneAcceso === false) return <SinAcceso />
 
@@ -58,33 +81,6 @@ export default function LeadsPage() {
     setLeads(data.rows || [])
     setLoading(false)
   }
-
-  const filtered = useMemo(() => {
-    let rows = leads
-
-    if (search) {
-      const q = search.toLowerCase()
-      rows = rows.filter((r) =>
-        Object.values(r).some((v) => v?.toLowerCase().includes(q))
-      )
-    }
-
-    if (filterEstado) {
-      rows = rows.filter((r) => r['Estado'] === filterEstado)
-    }
-
-    if (sortCol) {
-      rows = [...rows].sort((a, b) => {
-        const av = (a[sortCol] || '').toLowerCase()
-        const bv = (b[sortCol] || '').toLowerCase()
-        if (av < bv) return sortDir === 'asc' ? -1 : 1
-        if (av > bv) return sortDir === 'asc' ? 1 : -1
-        return 0
-      })
-    }
-
-    return rows
-  }, [leads, search, filterEstado, sortCol, sortDir])
 
   const toggleSort = (col: string) => {
     if (sortCol === col) {
