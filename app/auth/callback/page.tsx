@@ -5,33 +5,31 @@ import { supabase } from '@/lib/supabase'
 
 export default function AuthCallback() {
   const router = useRouter()
+
   useEffect(() => {
+    // 1. Extract provider_token (Google) from hash before Supabase consumes it
     const hash = window.location.hash
     if (hash) {
       const params = new URLSearchParams(hash.substring(1))
-      const access_token = params.get('access_token')
-      const refresh_token = params.get('refresh_token')
-      const provider_token = params.get('provider_token')
-
-      // Guardar el token de Google para llamar a Sheets/Drive/Gmail
-      if (provider_token) {
-        localStorage.setItem('google_access_token', provider_token)
+      const providerToken = params.get('provider_token')
+      if (providerToken) {
+        localStorage.setItem('google_access_token', providerToken)
       }
-
-      if (access_token && refresh_token) {
-        supabase.auth.setSession({ access_token, refresh_token }).then(() => {
-          router.push('/dashboard')
-        })
-      } else {
-        router.push('/login')
-      }
-    } else {
-      // Sin hash — intentar getSession por si ya hay sesión
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        if (session) router.push('/dashboard')
-        else router.push('/login')
-      })
     }
+
+    // 2. Let Supabase handle session from URL automatically (detectSessionInUrl: true)
+    //    Then listen for the session event to redirect
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === 'SIGNED_IN' && session) {
+        router.push('/dashboard')
+      } else if (event === 'INITIAL_SESSION' && !session) {
+        // No session after init → go to login
+        setTimeout(() => router.push('/login'), 500)
+      }
+    })
+
+    return () => subscription.unsubscribe()
   }, [router])
+
   return <p style={{color:'white',padding:40}}>Entrando...</p>
 }
