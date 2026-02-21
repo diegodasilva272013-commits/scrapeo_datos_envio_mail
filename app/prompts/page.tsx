@@ -83,9 +83,6 @@ export default function PromptsPage() {
       .then((d) => setSheets(d.files || []))
   }, [user])
 
-  if (authLoading || tieneAcceso === null) return null
-  if (tieneAcceso === false) return <SinAcceso />
-
   useEffect(() => {
     if (!spreadsheetId) return
     fetch(`/api/prompts?spreadsheetId=${spreadsheetId}`, { headers: getAuthHeaders() })
@@ -95,6 +92,9 @@ export default function PromptsPage() {
         if (d.prompts?.PROMPT_B) setPromptB(d.prompts.PROMPT_B)
       })
   }, [spreadsheetId])
+
+  if (authLoading || tieneAcceso === null) return null
+  if (tieneAcceso === false) return <SinAcceso />
 
   const save = async () => {
     if (!spreadsheetId) return alert('Seleccioná una spreadsheet primero')

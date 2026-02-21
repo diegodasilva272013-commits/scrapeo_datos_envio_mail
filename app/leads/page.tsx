@@ -38,6 +38,15 @@ export default function LeadsPage() {
       .then((d) => setSheets(d.files || []))
   }, [user])
 
+  useEffect(() => {
+    if (!spreadsheetId) return
+    setLoading(true)
+    fetch(`/api/leads?spreadsheetId=${spreadsheetId}&sheetName=LEADS`, { headers: getAuthHeaders() })
+      .then(r => r.json())
+      .then(d => { setLeads(d.rows || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [spreadsheetId])
+
   if (authLoading || tieneAcceso === null) return null
   if (tieneAcceso === false) return <SinAcceso />
 
@@ -49,11 +58,6 @@ export default function LeadsPage() {
     setLeads(data.rows || [])
     setLoading(false)
   }
-
-  useEffect(() => {
-    if (spreadsheetId) loadLeads()
-    // eslint-disable-next-line
-  }, [spreadsheetId])
 
   const filtered = useMemo(() => {
     let rows = leads

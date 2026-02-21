@@ -47,9 +47,6 @@ export default function ConfigPage() {
       .then((d) => setSheets(d.files || []))
   }, [user])
 
-  if (authLoading || tieneAcceso === null) return null
-  if (tieneAcceso === false) return <SinAcceso />
-
   useEffect(() => {
     if (!spreadsheetId) return
     fetch(`/api/config?spreadsheetId=${spreadsheetId}`, { headers: getAuthHeaders() })
@@ -60,6 +57,9 @@ export default function ConfigPage() {
         }
       })
   }, [spreadsheetId])
+
+  if (authLoading || tieneAcceso === null) return null
+  if (tieneAcceso === false) return <SinAcceso />
 
   const save = async () => {
     if (!spreadsheetId) return alert('Seleccioná una spreadsheet primero')
